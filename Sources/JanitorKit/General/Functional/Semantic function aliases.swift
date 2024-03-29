@@ -2,8 +2,8 @@
 //  Semantic function aliases.swift
 //  JanitorKit
 //
-//  Created by Ben Leggiero on 2020-03-07.
-//  Copyright © 2020 Ben Leggiero. All rights reserved.
+//  Created by Ky Leggiero on 2020-03-07.
+//  Copyright © 2020 Ky Leggiero. All rights reserved.
 //
 
 import Foundation

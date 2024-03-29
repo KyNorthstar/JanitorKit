@@ -2,8 +2,8 @@
 //  MeasurementUnit.swift
 //  Janitor
 //
-//  Created by Ben Leggiero on 2019-07-25.
-//  Copyright © 2019 Ben Leggiero. All rights reserved.
+//  Created by Ky Leggiero on 2019-07-25.
+//  Copyright © 2019 Ky Leggiero. All rights reserved.
 //
 
 import Foundation
@@ -12,7 +12,7 @@ import Foundation
 
 // MARK: - MeasurementUnit
 
-public protocol MeasurementUnit: IdentifiableOnlyIfUsingSwiftUI, Codable, Hashable, CaseIterable where AllCases: RandomAccessCollection {
+public protocol MeasurementUnit: Identifiable, Codable, Hashable, CaseIterable where AllCases: RandomAccessCollection {
 
     static var base: Self { get }
     

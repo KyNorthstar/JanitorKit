@@ -2,8 +2,8 @@
 //  DataSize.swift
 //  JanitorKit
 //
-//  Created by Ben Leggiero on 2019-07-19.
-//  Copyright © 2019 Ben Leggiero. All rights reserved.
+//  Created by Ky Leggiero on 2019-07-19.
+//  Copyright © 2019 Ky Leggiero. All rights reserved.
 //
 
 import Foundation
@@ -21,6 +21,9 @@ extension BinaryDataUnit: CaseIterable {
     
     public typealias AllCases = [BinaryDataUnit]
     
+    
+    
+    public static let `default`: Self = .mebibyte
     
     
     public static let allCases: AllCases = [
@@ -75,11 +78,63 @@ extension BinaryDataUnit: CaseIterable {
     ]
     
     
-    public static let commonSIFileSizeCases: AllCases = [
+    public static let commonSiFileSizeCases: AllCases = [
         .kilobyte,
         .megabyte,
         .gigabyte,
         .terabyte
+    ]
+    
+    
+    public static let allByteCases: AllCases = [
+        .byte,
+        .kibibyte,
+        .mebibyte,
+        .gibibyte,
+        .tebibyte,
+        .pebibyte,
+        .exbibyte,
+        .zebibyte,
+        .yobibyte,
+    ]
+    
+    
+    public static let allSiByteCases: AllCases = [
+        .byte,
+        .kilobyte,
+        .megabyte,
+        .gigabyte,
+        .terabyte,
+        .petabyte,
+        .exabyte,
+        .zettabyte,
+        .yottabyte,
+    ]
+    
+    
+    public static let allBitCases: AllCases = [
+        .bit,
+        .kibibit,
+        .mebibit,
+        .gibibit,
+        .tebibit,
+        .pebibit,
+        .exbibit,
+        .zebibit,
+        .yobibit,
+    ]
+    
+    
+    public static let allSiBitCases: AllCases = [
+        .bit,
+        .kilobit,
+        .megabit,
+        .gigabit,
+        .terabit,
+        .petabit,
+        .exabit,
+        .zettabit,
+        .yottabit,
     ]
 }
 
@@ -129,4 +184,103 @@ public extension BinaryFloatingPoint {
     var gibibits:   DataSize { DataSize(value: DataSize.Value(self), unit: .gibibit) }
     var mebibits:   DataSize { DataSize(value: DataSize.Value(self), unit: .mebibit) }
     var kibibits:   DataSize { DataSize(value: DataSize.Value(self), unit: .kibibit) }
+}
+
+
+
+// MARK: - Auto string
+
+private let bitsPerByte = Int(1.bytes.converted(to: .bit).value)
+private let bytesPerPrefixStep = 1.kibibytes.converted(to: .byte).value
+private let bitsPerPrefixStep = 1.kibibits.converted(to: .bit).value
+
+public extension DataSize {
+    /// Finds the best way to represent this data size as a string.
+    ///
+    /// For example, `4,194,304 bytes` will be represented as `"4 MiB"`,
+    /// `3,371,549,327.36 bytes` will be represented as `"3.14 GiB"`,
+    /// `3,360 bits` will be represented as `420 bytes`,
+    /// `39916801 bits` will be represented as `"38.07 Mib"` (because it's not divisible by 8)
+    /// etc.
+    ///
+    /// ---
+    ///
+    /// There are some special cases where the returned output is guaranteed:
+    ///
+    /// |                       data size value | `.bestDescription`
+    /// | -------------------------------------:|:------------------
+    /// |                                     0 | `"0 bits"`
+    /// |           Not a number, or non-normal | `"NaN bits"`
+    /// | `> Int.max`, `< Int.min`, or infinite | `"Infinity bits"`
+    var bestDescription: String {
+        let bits = converted(to: .bit)
+        let bitsValue = bits.value
+        
+        guard bitsValue != 0 else {
+            return "0 bits"
+        }
+        
+        guard bits.value.isNormal,
+              !bits.value.isNaN
+        else {
+            return "NaN bits"
+        }
+        
+        guard bits.value.isFinite,
+              bits.value <= .init(Int.max),
+              bits.value >= .init(Int.min)
+        else {
+            return "Infinity bits"
+        }
+        
+        let bestUnit: Unit
+        
+        if Int(bits.value).isMultiple(of: bitsPerByte) {
+            bestUnit = Unit
+                .allByteCases
+                .first(fitting: bits, withinStep: bytesPerPrefixStep)
+                ?? .default
+        }
+        else {
+            bestUnit = Unit
+                .allBitCases
+                .first(fitting: bits, withinStep: bitsPerPrefixStep)
+                ?? .default
+        }
+        
+        let bestConversion = converted(to: bestUnit)
+        
+        let numberString = Decimal.FormatStyle()
+            .precision(.fractionLength(0...2))
+            .format(.init(bestConversion.value))
+        
+        let unitString = bestUnit.symbol
+        
+        return "\(numberString) \(unitString)"
+    }
+}
+
+
+
+private extension Collection where Element: MeasurementUnit {
+    
+    /// Finds the first measurement unit by which the given `measurement` can be represented as greater than `0` and less than `stepSize`.
+    ///
+    /// - Note: Obviously, this works best if this collection is sorted before calling this. This function does not perform any sorting.
+    ///
+    /// - Complexity: O(n)
+    ///
+    /// - Parameters:
+    ///   - measurement: The mesurement whose best-fitting unit to find
+    ///   - stepSize:    The number of values between units.
+    ///                  We could have written this on `BiDirectionalCollection` and looked ahead and behind to make this more automatic, but that would take more effort from Us _and_ the program
+    ///
+    /// - Returns: The unit which represents the given measurement best, or `nil` if none could be found
+    func first(fitting measurement: Measurement<Element>, withinStep stepSize: CGFloat) -> Element? {
+        first { unit in
+            let unitValue = measurement.converted(to: unit).value
+            return unitValue < stepSize
+                && unitValue > 0
+        }
+    }
 }

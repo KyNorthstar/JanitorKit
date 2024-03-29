@@ -11,4 +11,7 @@ import SwiftyUserDefaults
 
 
 
-extension TrackedDirectory: DefaultsSerializable {}
+extension TrackedDirectory: DefaultsSerializable {
+    public typealias Bridge = DefaultsCodableBridge<Self>
+    public typealias ArrayBridge = DefaultsArrayBridge<[Self]>
+}

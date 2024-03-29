@@ -2,8 +2,8 @@
 //  Measurement.swift
 //  JanitorKit
 //
-//  Created by Ben Leggiero on 2019-07-25.
-//  Copyright © 2019 Ben Leggiero. All rights reserved.
+//  Created by Ky Leggiero on 2019-07-25.
+//  Copyright © 2019 Ky Leggiero. All rights reserved.
 //
 
 import Foundation
@@ -82,6 +82,12 @@ extension Measurement: CustomStringConvertible {
     private var valueString: String {
         numberFormatter.string(from: NSNumber(value: value)) ?? value.description
     }
+}
+
+
+
+extension Measurement: CustomDebugStringConvertible {
+    public var debugDescription: String { "\(value) \(unit.symbol)" }
 }
 
 

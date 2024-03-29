@@ -2,8 +2,8 @@
 //  Indexed Higher-Order Functions.swift
 //  JanitorKit
 //
-//  Created by Ben Leggiero on 2019-07-26.
-//  Copyright © 2019 Ben Leggiero. All rights reserved.
+//  Created by Ky Leggiero on 2019-07-26.
+//  Copyright © 2019 Ky Leggiero. All rights reserved.
 //
 
 import Foundation

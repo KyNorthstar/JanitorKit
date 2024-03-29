@@ -2,12 +2,14 @@
 //  SingleDirectoryJanitor.swift
 //  JanitorKit
 //
-//  Created by Ben Leggiero on 2019-08-03.
-//  Copyright © 2019 Ben Leggiero BH-1-PS
+//  Created by Ky Leggiero on 2019-08-03.
+//  Copyright © 2019 Ky Leggiero BH-1-PS
 //
 
 import Combine
 import Foundation
+
+import SimpleLogging
 
 
 
@@ -20,26 +22,29 @@ public actor SingleDirectoryJanitor {
     /// The directory that this janitor is tracking
     public let trackedDirectory: TrackedDirectory
     
-    private let checkingInterval: TimeInterval
+    public let priority: TaskPriority
     
-    private var timer: AnyCancellable?
+    public let checkingInterval: TimeInterval
     
-    private let deletionApproach: URL.DeleteApproach
+    private var cancellables: Set<AnyCancellable> = []
+    
+    public let deletionApproach: URL.DeleteApproach
     
     
     public init(
         trackedDirectory: TrackedDirectory,
+        priority: TaskPriority = .utility,
         checkingInterval: TimeInterval,
         deletionApproach: URL.DeleteApproach = .trashing)
     {
         self.trackedDirectory = trackedDirectory
+        self.priority         = priority
         self.checkingInterval = checkingInterval
         self.deletionApproach = deletionApproach
     }
     
-    
     deinit {
-        stop()
+        log(verbose: "Deinitializing \(self)")
     }
 }
 
@@ -47,12 +52,12 @@ public actor SingleDirectoryJanitor {
 
 public extension SingleDirectoryJanitor {
     
-    convenience init(
+    private static var filesystemChecks: Set<AnyCancellable> = []
+    
+    init(
         trackedDirectory: TrackedDirectory,
         deletionApproach: URL.DeleteApproach = .trashing)
     {
-        
-        
         self.init(
             trackedDirectory: trackedDirectory,
             checkingInterval: (10.seconds ... 5.minutes).clamp(trackedDirectory.oldestAllowedAge)
@@ -60,14 +65,31 @@ public extension SingleDirectoryJanitor {
             deletionApproach: deletionApproach)
     }
     
-    /// Starts the janitorial engine, immediately performing the check and
+    /// Starts the janitorial engine, immediately performing the check and scheduling future checks intelligently (heuristcally)
+    ///
     /// - Parameter dryRun: If `true`, no files will be deleted, but lines will be logged describing the action that would have been taken instead
     func start(dryRun: Bool) async {
-        
         stop()
         
-        timer = Timer.publish(every: checkingInterval, on: .current, in: .default)
-            .sink { [self] _ in Task { _ = await enqueueCheck(dryRun: dryRun) } }
+        let url = trackedDirectory.url
+        
+        url.fileChanges().sink { completion in
+            log(info: "File changes have stopped in \(url)")
+        } receiveValue: { change in
+            log(verbose: "Change received: \(change)")
+            
+            Task { [weak self] in
+                await self?.performCheck(dryRun: dryRun)
+            }
+        }
+        .store(in: &Self.filesystemChecks)
+
+        
+        Timer.publish(every: checkingInterval, on: .main, in: .default)
+            .sink { [self] _ in Task(priority: priority) {
+                await performCheck(dryRun: dryRun)
+            } }
+            .store(in: &cancellables)
         
         await performCheck(dryRun: dryRun)
     }
@@ -75,8 +97,7 @@ public extension SingleDirectoryJanitor {
     
     /// Immediately stops the janitorial engine. No questions asked, no strings attached
     func stop() {
-        timer?.cancel()
-        timer = nil
+        cancellables.removeAll()
     }
     
     
@@ -95,24 +116,28 @@ public extension SingleDirectoryJanitor {
 
 private extension SingleDirectoryJanitor {
     
-    func enqueueCheck(dryRun: Bool, andThen callback: @escaping DidPreformCheckCallback = blackhole) -> ReturnsViaCallback {
-        Task(priority: .background) {
-            _ = callback(await performCheck(dryRun: dryRun))
-        }
-        
-        return .willCallCallbackOnALaterIteration
-    }
-    
     
     @discardableResult
     func performCheck(dryRun: Bool) async -> CheckResult {
+        logEntry(); defer { logExit() }
+        
         let filesThatShouldBeDeleted = await trackedDirectory.filesThatShouldBeDeleted()
         
         guard !filesThatShouldBeDeleted.isEmpty else {
+            log(debug: "Checked all files in this directory and there was no need to delete any: \(trackedDirectory)")
             return .allFilesWereGood
         }
         
-        let batchDeleteResult = await filesThatShouldBeDeleted.deleteAll(by: .trashing, using: dryRun ? .dryRun : .default)
+        let batchDeleteResult: BatchDeleteResult
+        
+        if dryRun {
+            log(info: "DRY RUN: Checking files for deletion")
+            batchDeleteResult = await filesThatShouldBeDeleted.deleteAll(by: .trashing, using: .dryRun)
+        }
+        else {
+            log(info: "Checking files for deletion")
+            batchDeleteResult = await filesThatShouldBeDeleted.deleteAll(by: .trashing, using: .default_sendable)
+        }
         
         switch batchDeleteResult {
         case .allSuccess:
@@ -146,7 +171,7 @@ private extension SingleDirectoryJanitor {
 
 
 
-extension SingleDirectoryJanitor: IdentifiableOnlyIfUsingSwiftUI {
+extension SingleDirectoryJanitor: Identifiable {
     
     nonisolated public var id: TrackedDirectory.ID { trackedDirectory.id }
     

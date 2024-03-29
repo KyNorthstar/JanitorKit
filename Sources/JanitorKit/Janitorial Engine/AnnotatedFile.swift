@@ -2,11 +2,13 @@
 //  AnnotatedFile.swift
 //  JanitorKit
 //
-//  Created by Ben Leggiero on 2019-08-03.
-//  Copyright © 2019 Ben Leggiero. All rights reserved.
+//  Created by Ky Leggiero on 2019-08-03.
+//  Copyright © 2019 Ky Leggiero. All rights reserved.
 //
 
 import Foundation
+
+import SimpleLogging
 
 
 
@@ -42,6 +44,7 @@ public extension AnnotatedFile {
             self.init(url: url, size: size, age: age)
         }
         catch {
+            log(error: error)
             return nil
         }
     }
@@ -49,4 +52,14 @@ public extension AnnotatedFile {
 
 
 
+// MARK: - Conformance
+
 extension AnnotatedFile: Hashable { }
+
+
+
+extension AnnotatedFile: CustomStringConvertible {
+    public var description: String {
+        "\(size)\t •\t\(age.converted(to: .day)) old • \(url.path)"
+    }
+}

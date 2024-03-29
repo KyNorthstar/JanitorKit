@@ -2,11 +2,13 @@
 //  URL Extensions.swift
 //  JanitorKit
 //
-//  Created by Ben Leggiero on 2019-08-03.
-//  Copyright © 2019 Ben Leggiero. All rights reserved.
+//  Created by Ky Leggiero on 2019-08-03.
+//  Copyright © 2019 Ky Leggiero. All rights reserved.
 //
 
 import Foundation
+
+import SimpleLogging
 
 
 
@@ -19,16 +21,22 @@ public extension URL {
     /// - Parameter behavior: _optional_ Iff `true`, hidden files will **not** be returned. Defaults to `true`.
     /// - Parameter skipDirectories: _optional_ Iff `true`
     func allChildren(using fileManager: FileManager = .default, behavior: AllChildrenBehavior = .default) -> [URL] {
-        let allChildren = (try? fileManager.contentsOfDirectory(at: self,
-                                                                includingPropertiesForKeys: nil,
-                                                                options: behavior.contains(.includeHiddenFiles) ? [] : .skipsHiddenFiles))
+        logEntry(); defer { logExit() }
+        
+        let allChildren = (try? fileManager.contentsOfDirectory(
+                at: self,
+                includingPropertiesForKeys: nil,
+                options: behavior.contains(.includeHiddenFiles) ? [] : .skipsHiddenFiles))
             ?? []
         
         if behavior.contains(.includeDirectories) {
+            log(debug: "Found \(allChildren.count) total files in this folder")
             return allChildren
         }
         else {
-            return allChildren.filter { $0.hasDirectoryPath }
+            let allChildren = allChildren.filter { !$0.hasDirectoryPath }
+            log(debug: "Found \(allChildren.count) total files in this folder (excluded directories)")
+            return allChildren
         }
     }
     
@@ -63,7 +71,7 @@ public extension URL {
     }
     
     
-    /// Attempts to completely resolve this page
+    /// Attempts to completely resolve this path
     var actualPath: String {
         return self.resolvingSymlinksInPath().standardizedFileURL.absoluteURL.path
     }
@@ -135,7 +143,7 @@ public extension URL {
             return nil
         }
         
-        return Age(value: date.timeIntervalSinceNow, unit: .second)
+        return Age(value: Date.now.timeIntervalSince(date), unit: .second)
     }
     
     
@@ -191,16 +199,19 @@ public extension URL {
     /// - Parameter fileManager:    _optional_ The file manager which will carry out the deletion. Defaults to `.standard`.
     /// - Parameter queueGenerator: _optional_ The queue on which to perform the deletion. Defaults to `.newDeleteQueue()`.
     /// - Parameter callback:       Called when the deletion has finished.
-    func delete(by approach: DeleteApproach = .trashing,
-                using fileManager: FileManager = .default)
+    func delete<FM: FileManagerProtocol>(
+        by approach: DeleteApproach = .trashing,
+        using fileManager: FM)
     async -> DeleteResult
     {
         do {
             switch approach {
             case .removing:
+                fatalError()
                 try fileManager.removeItem(at: self)
                 
             case .trashing:
+                fatalError()
                 try fileManager.trashItem(at: self, resultingItemURL: nil)
             }
             
@@ -272,9 +283,10 @@ public extension Collection where Element == URL {
     /// - Parameter fileManager:    _optional_ The file manager which will carry out the deletion. Defaults to `.standard`.
     /// - Parameter queueGenerator: _optional_ The function which will generate a new queue on which to perform each deletion. Defaults to `{ .newDeleteQueue() }`.
     /// - Parameter callback:       Called when all the deletions have finished.
-    func deleteAll(by approach: DeleteApproach,
-                   using fileManager: FileManager = .default,
-                   on queueGenerator: @escaping JanitorKit.Generator<DispatchQueue> = { .newDeleteQueue() })
+    func deleteAll<FMP: FileManagerProtocol>(
+        by approach: DeleteApproach,
+        using fileManager: FMP,
+        on queueGenerator: @escaping JanitorKit.Generator<DispatchQueue> = { .newDeleteQueue() })
     async -> BatchDeleteResult {
         var numberOfCompletedDeleteAttempts: UInt = 0
         var failures = Set<DeletionFailure>()
@@ -311,6 +323,14 @@ public extension Collection where Element == URL {
             return .mixed(successfullyDeletedFiles: successfulDeletions,
                           remainingErrors: failures)
         }
+    }
+    
+    
+    func deleteAll(
+        by approach: DeleteApproach,
+        on queueGenerator: @escaping JanitorKit.Generator<DispatchQueue> = { .newDeleteQueue() })
+    async -> BatchDeleteResult {
+        await deleteAll(by: approach, using: .default, on: queueGenerator)
     }
     
     

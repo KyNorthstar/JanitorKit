@@ -2,8 +2,8 @@
 //  AgeTests.swift
 //  JanitorKitTests
 //
-//  Created by Ben Leggiero on 2019-07-19.
-//  Copyright © 2019 Ben Leggiero. All rights reserved.
+//  Created by Ky Leggiero on 2019-07-19.
+//  Copyright © 2019 Ky Leggiero. All rights reserved.
 //
 
 import XCTest

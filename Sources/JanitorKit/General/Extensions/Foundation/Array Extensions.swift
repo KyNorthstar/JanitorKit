@@ -2,8 +2,8 @@
 //  Array Extensions.swift
 //  JanitorKit
 //
-//  Created by Ben Leggiero on 2019-07-28.
-//  Copyright © 2019 Ben Leggiero. All rights reserved.
+//  Created by Ky Leggiero on 2019-07-28.
+//  Copyright © 2019 Ky Leggiero. All rights reserved.
 //
 
 import SwiftUI

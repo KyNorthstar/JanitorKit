@@ -2,8 +2,8 @@
 //  SceneStorage Extensions.swift
 //  JanitorKit
 //
-//  Created by Ben Leggiero on 2020-09-09.
-//  Copyright © 2020 Ben Leggiero. All rights reserved.
+//  Created by Ky Leggiero on 2020-09-09.
+//  Copyright © 2020 Ky Leggiero. All rights reserved.
 //
 
 import SwiftUI

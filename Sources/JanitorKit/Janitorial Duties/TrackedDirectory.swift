@@ -2,8 +2,8 @@
 //  TrackedDirectory.swift
 //  Janitor
 //
-//  Created by Ben Leggiero on 2019-07-19.
-//  Copyright © 2019 Ben Leggiero. All rights reserved.
+//  Created by Ky Leggiero on 2019-07-19.
+//  Copyright © 2019 Ky Leggiero. All rights reserved.
 //
 
 import Foundation
@@ -16,6 +16,8 @@ public struct TrackedDirectory {
     public var isEnabled: Bool
     public var url: URL
     public var oldestAllowedAge: Age
+    // TODO: Add amnesty for very new files. For example, if someone downloads a huge DMG, they can still open it or move it before this deletes it
+    // public var youngestProhibitedAge: Age?
     public var largestAllowedTotalSize: DataSize
     
     public init(uuid: UUID, isEnabled: Bool = true, url: URL, oldestAllowedAge: Age, largestAllowedTotalSize: DataSize) {
@@ -41,7 +43,7 @@ extension TrackedDirectory: Codable {}
 
 
 
-extension TrackedDirectory: IdentifiableOnlyIfUsingSwiftUI {
+extension TrackedDirectory: Identifiable {
     public var id: UUID { uuid }
 }
 
@@ -58,5 +60,17 @@ public extension TrackedDirectory {
                          url: URL.User.downloads!,
                          oldestAllowedAge: 30.days,
                          largestAllowedTotalSize: 1.gigabytes)
+    }
+}
+
+
+
+extension TrackedDirectory: CustomStringConvertible {
+    public var description: String {
+        """
+        \(url.path)
+            Oldest allowed age:         \(oldestAllowedAge)
+            Largest allowed total size: \(largestAllowedTotalSize)
+        """
     }
 }
