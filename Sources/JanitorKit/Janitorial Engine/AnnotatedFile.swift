@@ -60,6 +60,6 @@ extension AnnotatedFile: Hashable { }
 
 extension AnnotatedFile: CustomStringConvertible {
     public var description: String {
-        "\(size)\t •\t\(age.converted(to: .day)) old • \(url.path)"
+        "\(size.bestDescription)\t •\t\(age.converted(to: .day)) old • \(url.path)"
     }
 }

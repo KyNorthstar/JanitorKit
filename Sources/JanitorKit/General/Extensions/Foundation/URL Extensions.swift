@@ -211,7 +211,7 @@ public extension URL {
                 try fileManager.removeItem(at: self)
                 
             case .trashing:
-                fatalError()
+//                fatalError()
                 try fileManager.trashItem(at: self, resultingItemURL: nil)
             }
             

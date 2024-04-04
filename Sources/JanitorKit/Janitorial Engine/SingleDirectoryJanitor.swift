@@ -26,9 +26,12 @@ public actor SingleDirectoryJanitor {
     
     public let checkingInterval: TimeInterval
     
+    public let deletionApproach: URL.DeleteApproach
+    
+    
     private var cancellables: Set<AnyCancellable> = []
     
-    public let deletionApproach: URL.DeleteApproach
+    private var isCurrentlyChecking = false
     
     
     public init(
@@ -121,6 +124,14 @@ private extension SingleDirectoryJanitor {
     func performCheck(dryRun: Bool) async -> CheckResult {
         logEntry(); defer { logExit() }
         
+        guard !isCurrentlyChecking else {
+            log(debug: "Another check is already running; skipping this one")
+            return .checkSkipped
+        }
+        
+        isCurrentlyChecking = true
+        defer { isCurrentlyChecking = false }
+        
         let filesThatShouldBeDeleted = await trackedDirectory.filesThatShouldBeDeleted()
         
         guard !filesThatShouldBeDeleted.isEmpty else {
@@ -157,11 +168,23 @@ private extension SingleDirectoryJanitor {
     
     
     
+    /// The result of checking a directory for files to be removed
     enum CheckResult {
+        
+        /// The check was purposefully not performed for some reason
+        case checkSkipped
+        
+        /// The check was performed and didn't find any files to remove
         case allFilesWereGood
+        
+        /// The check was performed, and found files to remove, and successfully removed those files
         case successfullyCleaned(cleanedUpFiles: Set<URL>)
-        case failedToCleanAllBadFiles(uncleanFiles: Set<UncleanFile>)
+        
+        /// The check was performed, and found files to remove, and removed some of those files, but not all of them
         case failedToCleanSomeBadFiles(cleanedUpFiles: Set<URL>, uncleanFiles: Set<UncleanFile>)
+        
+        /// The check was performed, and found files to remove, but couldn't remove any of those files
+        case failedToCleanAllBadFiles(uncleanFiles: Set<UncleanFile>)
     }
     
     

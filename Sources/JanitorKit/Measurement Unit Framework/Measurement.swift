@@ -67,9 +67,16 @@ extension Measurement: AdditiveArithmetic {
 
 // MARK: - General Conformance
 
-extension Measurement: Equatable {}
 extension Measurement: Hashable {}
 extension Measurement: Codable {}
+
+
+
+extension Measurement: Equatable {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.convertingToBase.value == rhs.convertingToBase.value
+    }
+}
 
 
 
