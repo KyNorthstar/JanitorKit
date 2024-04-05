@@ -109,7 +109,7 @@ internal extension TrackedDirectory {
             )
             
             let bigFilesSize = totalSizeOfFilesToBeCleaned - oldFilesSize
-            log(info: "Found \(oldFilesSize.bestDescription) of old files (\(oldFiles.count)) and \(bigFilesSize.bestDescription) of big files (\(bigFiles.count)) to remove (\(totalSizeOfFilesToBeCleaned.bestDescription) total across all \(oldFiles.count + bigFiles.count) files)")
+            log(info: "Found \(oldFilesSize.bestDescription) of old files (\(oldFiles.count)) and \(bigFilesSize.bestDescription) of big files (\(bigFiles.count)) to remove (\(totalSizeOfFilesToBeCleaned.bestDescription) total across all \(oldFiles.count + bigFiles.count) files), bringing the total directory size down to \(expectedSizeAfterCleaning.bestDescription), which is within the quota of \(largestAllowedTotalSize.bestDescription) for \(url.path)")
             
             assert(oldFiles.isDisjoint(with: bigFiles), "oldFiles and bigFiles must refer to completely different files")
             

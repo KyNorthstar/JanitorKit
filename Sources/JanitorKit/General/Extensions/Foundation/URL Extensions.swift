@@ -207,10 +207,12 @@ public extension URL {
         do {
             switch approach {
             case .removing:
+                log(debug: "Permanently deleting \(path)")
                 fatalError()
                 try fileManager.removeItem(at: self)
                 
             case .trashing:
+                log(debug: "Sending \(path) to trash")
 //                fatalError()
                 try fileManager.trashItem(at: self, resultingItemURL: nil)
             }
@@ -218,7 +220,8 @@ public extension URL {
             return .success
         }
         catch {
-            return .otherFailure(error: error)
+            log(error: error)
+            return DeleteResult(error)
         }
     }
     
@@ -242,7 +245,29 @@ public extension URL {
     enum DeleteResult {
         case success
         case lackOfPermissions
+        case noTrashOnDevice(NoTrashesError)
         case otherFailure(error: Error)
+    }
+}
+
+
+
+internal extension URL.DeleteResult {
+    init(_ someError: Error) {
+        let nsError = someError as NSError
+        
+        if nsError.domain == NSCocoaErrorDomain {
+            switch nsError.code {
+            case 3328: // Can we figure out which compile-time symbol corresponds to this magic number?
+                self = .noTrashOnDevice(NoTrashesError(nsError))
+                
+            default:
+                self = .otherFailure(error: someError)
+            }
+        }
+        else {
+            self = .otherFailure(error: someError)
+        }
     }
 }
 
@@ -297,12 +322,19 @@ public extension Collection where Element == URL {
             
             switch result {
             case .success:
+                log(debug: "Successfully deleted the file at \(url.path)")
                 successfulDeletions.insert(url)
                 
             case .lackOfPermissions:
+                log(error: "I don't have the right permissions to delete the file at \(url.path)")
                 failures.insert(.init(url: url, error: LackOfPermissionsError()))
                 
+            case .noTrashOnDevice(let error):
+                log(error: "I couldn't send \(url.lastPathComponent) to the trash because I couldn't find any trash cans on the drive that file is currently saved on. The operating system told me this:   \(error.localizedDescription)")
+                failures.insert(.init(url: url, error: error))
+                
             case .otherFailure(let error):
+                log(error: "I don't know why, but I couldn't delete the file at \(url.path)")
                 failures.insert(.init(url: url, error: error))
             }
         }
@@ -368,6 +400,18 @@ public enum BatchDeleteResult {
 
 
 public struct LackOfPermissionsError: Error {
+}
+
+
+
+public struct NoTrashesError: LocalizedError {
+    let localizedDescription: String
+    let localizedFailureReason: String
+    
+    init(_ originalError: NSError) {
+        self.localizedDescription = originalError.localizedDescription
+        self.localizedFailureReason = originalError.localizedFailureReason ?? ""
+    }
 }
 
 

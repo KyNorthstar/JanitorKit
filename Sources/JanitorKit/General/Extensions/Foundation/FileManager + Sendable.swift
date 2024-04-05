@@ -19,6 +19,6 @@ extension SendableFileManager: @unchecked Sendable {}
 
 extension FileManagerProtocol where Self == SendableFileManager {
     static var default_sendable: Self {
-        FileManager.default as! Self
+        unsafeBitCast(FileManager.default, to: Self.self)
     }
 }

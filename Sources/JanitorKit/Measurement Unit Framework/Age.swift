@@ -8,6 +8,8 @@
 
 import Foundation
 
+import BasicMathTools
+
 
 
 /// The age of something, such as seconds, hours, nanoseconds, etc.
@@ -17,13 +19,23 @@ public typealias Age = Measurement<DurationMeasurementUnit>
 
 // MARK: - CaseIterable
 
-extension DurationMeasurementUnit: CaseIterable {
+extension DurationMeasurementUnit: SortedLengthCaseIterable {
     
     public typealias AllCases = [DurationMeasurementUnit]
     
     
     
-    public static let allCases: AllCases = [
+    public static let allCases = allCases_sortedLongestFirst
+    
+    public static let commonFileAgeCases: AllCases = [
+        .minute,
+        .hour,
+        .day,
+        .week,
+        .year,
+    ]
+    
+    public static let allCases_sortedLongestFirst: AllCases = [
         .year,
         .week,
         .day,
@@ -34,14 +46,6 @@ extension DurationMeasurementUnit: CaseIterable {
         .microsecond,
         .nanosecond,
         .picosecond,
-    ]
-    
-    public static let commonFileAgeCases: AllCases = [
-        .year,
-        .week,
-        .day,
-        .hour,
-        .minute,
     ]
 }
 

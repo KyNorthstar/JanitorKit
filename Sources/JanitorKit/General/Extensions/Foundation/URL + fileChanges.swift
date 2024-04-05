@@ -180,26 +180,32 @@ private final class DirectoryChangeWatcher {
             let eventFlag = Int(eventFlags[eventIndex])
             let path = eventPaths[eventIndex]
             
-            if (kFSEventStreamEventFlagItemCreated | eventFlag) != 0 {
+            if (kFSEventStreamEventFlagItemCreated & eventFlag) != 0 {
                 created.append(path)
             }
-            if (kFSEventStreamEventFlagItemModified | eventFlag) != 0 {
+            if (kFSEventStreamEventFlagItemModified & eventFlag) != 0 {
                 modified.append(path)
             }
-            if (kFSEventStreamEventFlagItemRemoved | eventFlag) != 0 {
+            if (kFSEventStreamEventFlagItemRemoved & eventFlag) != 0 {
                 removed.append(path)
             }
             
 //            kFSEventStreamEventFlagItemRenamed
         }
         
-        self.changeCallback(.success([
-            .removed(defunctPaths: removed),
-            .modified(modifiedPaths: modified),
-            .added(newFilePaths: created),
-        ]))
         
-//        fsWatcher.onChangeCallback?(fileEvents)
+        var allChanges: [FileChange] = []
+        if removed.isNotEmpty {
+            allChanges.append(.removed(defunctPaths: removed))
+        }
+        if modified.isNotEmpty {
+            allChanges.append(.modified(modifiedPaths: modified))
+        }
+        if created.isNotEmpty {
+            allChanges.append(.added(newFilePaths: created))
+        }
+        
+        self.changeCallback(.success(allChanges))
     }
     
     

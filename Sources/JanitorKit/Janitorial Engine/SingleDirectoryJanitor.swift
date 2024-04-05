@@ -76,24 +76,42 @@ public extension SingleDirectoryJanitor {
         
         let url = trackedDirectory.url
         
-        url.fileChanges().sink { completion in
-            log(info: "File changes have stopped in \(url)")
-        } receiveValue: { change in
-            log(verbose: "Change received: \(change)")
-            
-            Task { [weak self] in
-                await self?.performCheck(dryRun: dryRun)
+        log(info: "Going to automatically perform checks whenever file changes are detected in \(url.path)")
+        url.fileChanges()
+            .filter {
+                // Don't worry about observing deletions; the whole point of this app is to auto-delete, so if something deletes a file (incl. this app), then that's just less work for this app
+                switch $0 {
+                case .added(newFilePaths: _),
+                        .modified(modifiedPaths: _):
+                    return true
+                    
+                case .removed(defunctPaths: _):
+                    return false
+                }
             }
-        }
-        .store(in: &Self.filesystemChecks)
+            .sink { completion in
+                log(info: "File changes have stopped in \(url) • \(completion)")
+            } receiveValue: { change in
+                log(verbose: "Change received: \(change)")
+                
+                Task { [weak self] in
+                    await self?.performCheck(dryRun: dryRun)
+                }
+            }
+            .store(in: &Self.filesystemChecks)
 
         
+        log(info: "Going to automatically perform checks every \(Age(value: checkingInterval, unit: .second).bestDescription)")
         Timer.publish(every: checkingInterval, on: .main, in: .default)
-            .sink { [self] _ in Task(priority: priority) {
+            .sink { completion in
+                log(info: "Timer has stopped in \(url) • \(completion)")
+            } receiveValue: { [self] _ in Task(priority: priority) {
+                log(verbose: "It's been \(checkingInterval) seconds since the last check; performing one now")
                 await performCheck(dryRun: dryRun)
             } }
             .store(in: &cancellables)
         
+        log(info: "Performing first check...")
         await performCheck(dryRun: dryRun)
     }
     
@@ -142,22 +160,25 @@ private extension SingleDirectoryJanitor {
         let batchDeleteResult: BatchDeleteResult
         
         if dryRun {
-            log(info: "DRY RUN: Checking files for deletion")
+            log(info: "DRY RUN: Scheduling \(filesThatShouldBeDeleted.count) files for deletion from \(trackedDirectory.url.path)")
             batchDeleteResult = await filesThatShouldBeDeleted.deleteAll(by: .trashing, using: .dryRun)
         }
         else {
-            log(info: "Checking files for deletion")
+            log(info: "Scheduling \(filesThatShouldBeDeleted.count) files for deletion from \(trackedDirectory.url.path)")
             batchDeleteResult = await filesThatShouldBeDeleted.deleteAll(by: .trashing, using: .default_sendable)
         }
         
         switch batchDeleteResult {
         case .allSuccess:
+            log(info: "Successfully cleaned out \(filesThatShouldBeDeleted.count) files from \(trackedDirectory.url.path)")
             return .successfullyCleaned(cleanedUpFiles: filesThatShouldBeDeleted)
             
         case .mixed(let successes, let remainingErrors):
+            log(error: "Failed to cleaned out \(remainingErrors.count) files, but succeeded in cleaning out \(successes.count) files from \(trackedDirectory.url.path)")
             return .failedToCleanSomeBadFiles(cleanedUpFiles: successes, uncleanFiles: remainingErrors)
             
         case .allFailed(let uncleanFiles):
+            log(error: "Failed to cleaned out any of the \(uncleanFiles.count) files selected for removal from \(trackedDirectory.url.path)")
             return .failedToCleanAllBadFiles(uncleanFiles: uncleanFiles)
         }
     }
