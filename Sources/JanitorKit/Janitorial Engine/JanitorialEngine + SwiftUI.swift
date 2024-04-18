@@ -27,7 +27,7 @@ public extension JanitorialEngine.ActivityFeed {
 public extension EnvironmentValues {
     var janitorialEngineActivityFeed: JanitorialEngine.ActivityFeed {
         get { self[JanitorialEngine.ActivityFeed.EnvironmentKey.self] }
-//        set { self[JanitorialEngine.ActivityFeed.EnvironmentKey.self] = newValue }
+        set { self[JanitorialEngine.ActivityFeed.EnvironmentKey.self] = newValue }
     }
 }
 
