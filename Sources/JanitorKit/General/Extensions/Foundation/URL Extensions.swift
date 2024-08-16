@@ -208,7 +208,7 @@ public extension URL {
             switch approach {
             case .removing:
                 log(debug: "Permanently deleting \(path)")
-                fatalError()
+//                fatalError()
                 try fileManager.removeItem(at: self)
                 
             case .trashing:
@@ -338,6 +338,7 @@ public extension Collection where Element == URL {
                 failures.insert(.init(url: url, error: error))
             }
         }
+        
         
         for url in self {
             let deleteResult = await url.delete(by: approach, using: fileManager)

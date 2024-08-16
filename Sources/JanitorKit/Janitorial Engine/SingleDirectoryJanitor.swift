@@ -74,6 +74,8 @@ public extension SingleDirectoryJanitor {
     func start(dryRun: Bool) async {
         stop()
         
+        guard trackedDirectory.isEnabled else { return }
+        
         let url = trackedDirectory.url
         
         log(info: "Going to automatically perform checks whenever file changes are detected in \(url.path)")

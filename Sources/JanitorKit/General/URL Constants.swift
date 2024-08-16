@@ -3,7 +3,6 @@
 //  JanitorKit
 //
 //  Created by Ky Leggiero on 2019-07-18.
-//  Copyright © 2019 Ky Leggiero. All rights reserved.
 //
 
 import Foundation
@@ -15,8 +14,12 @@ import Cocoa
 
 public extension URL {
     
+    /// The path to either the user’s or application’s home directory, depending on the platform.
+    ///
+    /// In iOS, the home directory is the application’s sandbox directory. In macOS, it’s the application’s sandbox directory, or the current user’s home directory if the application isn’t in a sandbox.
     @inlinable
-    static var userHome: URL {
+    static var homeDirectory: URL {
+        // Using `NSHomeDirectory()` instead of `FileManager.default.homeDirectoryForCurrentUser` because the NS one promises to be smart about app containers but the FileManager one doesn't
         return URL(fileURLWithPath: NSHomeDirectory())
     }
     
@@ -42,7 +45,7 @@ extension URL.User: UrlNamespace {
     
     
     public static var home: URL {
-        return .userHome
+        return .homeDirectory
     }
 }
 
@@ -75,13 +78,27 @@ public protocol UrlNamespace {
 
 
 
+/// A domain namespace for filesystem locations
 public enum UrlNamespaceDomain {
+    /// The domain of the currently logged-in user (or the container of an app acting as the user's agent); the user’s home directory—the place to install user’s personal items (~).
     case user
+    
+    /// The domain of all users of this machine; the place to install items available to everyone on this machine.
     case local
-    case network
+    
+    /// The domain of this machine's operating system; a directory for system files provided by Apple (/System) .
     case system
     
+    /// **RARE:** The domain of the network this machine is on; The place to install items available on the network (/Network).
+    case network
     
+    
+    /// Finds the most local domain represented in the given domain mask.
+    ///
+    /// This searches in the order of this enum, from most to least local: User, then Local, then System, then Network.
+    /// If the given mask contains more than one of these (for example, ``allDomainsMask``), the most-local one is selected
+    ///
+    /// - Parameter mask: The search path domain mask to parse into namespace domains
     init?(from mask: FileManager.SearchPathDomainMask) {
         if mask.contains(.userDomainMask) {
             self = .user
@@ -89,11 +106,11 @@ public enum UrlNamespaceDomain {
         else if mask.contains(.localDomainMask) {
             self = .local
         }
-        else if mask.contains(.networkDomainMask) {
-            self = .network
-        }
         else if mask.contains(.systemDomainMask) {
             self = .system
+        }
+        else if mask.contains(.networkDomainMask) {
+            self = .network
         }
         else {
             return nil
@@ -124,10 +141,19 @@ extension UrlNamespaceDomain: CustomStringConvertible {
 
 
 
+/// A directory within a namespace/domain
 public enum UrlNamespaceDirectory {
+    
+    /// The directory containing canonical applications installed within this namespace/domain
     case applications
+    
+    /// The directory containing technical/required files (caches, user data, ancillary executables, etc.) within this namespace/domain
     case library
+    
+    /// The directory the files within this namespace/domain which appear on the user's desktop
     case desktop
+    
+    /// The directory within this namespace/domain where downloaded files go by default
     case downloads
     
     
@@ -172,6 +198,8 @@ public enum UrlNamespaceDirectory {
              
              .allApplicationsDirectory,
              .allLibrariesDirectory:
+            
+            // No current/prospective interest in using these
             fallthrough
             
         @unknown default:
@@ -186,6 +214,11 @@ public extension UrlNamespace {
     
     static var domainMask: FileManager.SearchPathDomainMask {
         return .init(domain)
+    }
+    
+    
+    static func searchPath(for directory: Directory, in domainMask: FileManager.SearchPathDomainMask, expandingTilde: Bool = true) -> [String] {
+        NSSearchPathForDirectoriesInDomains(.init(directory), domainMask, expandingTilde)
     }
     
 
@@ -209,9 +242,11 @@ public extension UrlNamespace {
     
     
     static func relativeToHome(directory: Directory) -> URL? {
-        let paths = NSSearchPathForDirectoriesInDomains(.init(directory), domainMask, /* expandingTilde: */ true)
+        let paths = searchPath(for: directory, in: domainMask)
         guard let firstPath = paths.first else {
-            preconditionFailure("No paths in \(directory) within \(domain)")
+            assertionFailure("No paths in \(directory) within \(domain)")
+            
+            return nil
         }
         return URL(fileURLWithPath: firstPath)
     }

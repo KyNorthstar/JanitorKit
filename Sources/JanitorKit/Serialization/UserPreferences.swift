@@ -20,8 +20,8 @@ public enum UserPreferences {
 public extension UserPreferences {
     @UserDefault("trackedDirectories")
     static var trackedDirectories = [
-        TrackedDirectory(uuid: UUID(), isEnabled: false, url: URL.User.downloads!, oldestAllowedAge: 30.days, largestAllowedTotalSize: 1.gibibytes),
-        TrackedDirectory(uuid: UUID(), isEnabled: false, url: URL.User.desktop!, oldestAllowedAge: 90.days, largestAllowedTotalSize: 5.gibibytes),
+        TrackedDirectory(uuid: UUID(), sort: 1, isEnabled: false, url: URL.User.downloads!, oldestAllowedAge: 30.days, largestAllowedTotalSize: 1.gibibytes),
+        TrackedDirectory(uuid: UUID(), sort: 2, isEnabled: false, url: URL.User.desktop!, oldestAllowedAge: 90.days, largestAllowedTotalSize: 5.gibibytes),
         ] {
         didSet {
             trackedDirectoryChangeListeners.forEachIgnoringReturn(call(passing: trackedDirectories))
