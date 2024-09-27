@@ -17,7 +17,7 @@ internal extension AnyPublisher {
     static func dummyThatNeverPublishes() -> Self {
         [Output]().publisher
             .setFailureType(to: Failure.self)
-            .filter { _ in false } // Just in case
+            .filter { _ in false } // Just in case, make sure nothing can publish from this
             .eraseToAnyPublisher()
     }
 }

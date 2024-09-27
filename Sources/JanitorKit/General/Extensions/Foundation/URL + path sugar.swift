@@ -32,7 +32,7 @@ public extension URL {
 
 
 
-private extension URL {
+internal extension URL {
     /// A bodge to use both the old and new ways to construct a URL from a file path
     ///
     /// Still no clue why they decided to change that function signature. It's annoyingly useless. Like yea it was a bit unweildy but whatever. I'd rather have something unweildy that's consistent.

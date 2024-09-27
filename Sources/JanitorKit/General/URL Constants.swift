@@ -8,6 +8,8 @@
 import Foundation
 import Cocoa
 
+import SimpleLogging
+
 
 
 // MARK: User-space conveniences
@@ -23,14 +25,39 @@ public extension URL {
         return URL(fileURLWithPath: NSHomeDirectory())
     }
     
+    /// The lowest-level directory on this machine. All other directories are children of this one
+    static let rootDirectory: URL = {
+        // Is there a semantic way we can do this?
+        .init(_filePath: "/")
+    }()
+    
+    /// The directory containing system files (like `/System`)
+    static let systemDirectory: Self = {
+        FileManager.default.urls(for: .libraryDirectory, in: .systemDomainMask)
+            .first?.deletingLastPathComponent()
+            ?? URL(_filePath: "/System")
+    }()
+    
     
     static func relativeToUserHome(_ path: String) -> URL {
-        return URL.User.relativeToHome(path: path)
+        return URL.User.relativeToSubroot(path: path)
     }
     
     
     
     enum User {
+        // Empty on-purpose; all members are static
+    }
+    
+    
+    
+    enum Local {
+        // Empty on-purpose; all members are static
+    }
+    
+    
+    
+    enum System {
         // Empty on-purpose; all members are static
     }
 }
@@ -44,8 +71,50 @@ extension URL.User: UrlNamespace {
     }
     
     
-    public static var home: URL {
-        return .homeDirectory
+//    public static var home: URL? {
+//        return .homeDirectory
+//    }
+    
+    
+    @inline(__always)
+    public static var subroot: URL {
+        return .userDirectory
+    }
+}
+
+
+
+extension URL.Local: UrlNamespace {
+    
+    public static var domain: UrlNamespaceDomain {
+        .local
+    }
+    
+    
+//    public static var home: URL? { nil }
+    
+    
+    @inline(__always)
+    public static var subroot: URL {
+        .rootDirectory
+    }
+}
+
+
+
+extension URL.System: UrlNamespace {
+    
+    public static var domain: UrlNamespaceDomain {
+        .system
+    }
+    
+    
+//    public static var home: URL? { nil }
+    
+    
+    @inline(__always)
+    public static var subroot: URL {
+        .systemDirectory
     }
 }
 
@@ -55,15 +124,21 @@ public protocol UrlNamespace {
     
     // MARK: Required
     
-    static var home: URL { get }
+    /// The directory which defines this namespace
+    static var subroot: URL { get }
+    
+//    /// The home directory in this namespace. Not all domains have home directories
+//    static var home: URL? { get }
+    
+    /// This namespace's semantic domain
     static var domain: UrlNamespaceDomain { get }
     
     
     // MARK: Optional
     
-    static func relativeToHome(path: String) -> URL
-    static func relativeToHome(pathComponents: [String]) -> URL
-    static func relativeToHome(directory: Directory) -> URL?
+    static func relativeToSubroot(path: String) -> URL
+    static func relativeToSubroot(pathComponents: [String]) -> URL
+    static func relativeToSubroot(directory: SemanticDirectory) -> URL?
     
     static var applications: URL? { get }
     static var library: URL? { get }
@@ -71,9 +146,14 @@ public protocol UrlNamespace {
     static var downloads: URL? { get }
     
     
+    // MARK: / Operators
+    
+    static func / (lhs: Self.Type, rhs: SemanticDirectory) -> URL?
+    
+    
     
     typealias Domain = UrlNamespaceDomain
-    typealias Directory = UrlNamespaceDirectory
+    typealias SemanticDirectory = UrlNamespaceDirectory
 }
 
 
@@ -142,69 +222,119 @@ extension UrlNamespaceDomain: CustomStringConvertible {
 
 
 /// A directory within a namespace/domain
-public enum UrlNamespaceDirectory {
+public enum UrlNamespaceDirectory: CaseIterable {
     
-    /// The directory containing canonical applications installed within this namespace/domain
-    case applications
-    
-    /// The directory containing technical/required files (caches, user data, ancillary executables, etc.) within this namespace/domain
-    case library
-    
-    /// The directory the files within this namespace/domain which appear on the user's desktop
-    case desktop
-    
-    /// The directory within this namespace/domain where downloaded files go by default
-    case downloads
+    case fileManager(FileManagerSearchPathDirectory)
+    case generic(GenericDirectory)
+    // IMPORTANT: If you add another case, be sure to add it to `allCases` as well
     
     
     init?(from searchPathDirectory: FileManager.SearchPathDirectory) {
-        switch searchPathDirectory {
-        case .applicationDirectory:
-            self = .applications
-            
-        case .libraryDirectory:
-            self = .library
-
-            
-        case .desktopDirectory:
-            self = .desktop
-            
-        case .downloadsDirectory:
-            self = .downloads
-            
-        case .documentDirectory,
-             .trashDirectory:
-            // Might do these in the future... 🤔
-            return nil
-
-        case .demoApplicationDirectory, .developerApplicationDirectory, .adminApplicationDirectory,
-             
-             .developerDirectory,
-             .userDirectory,
-             .documentationDirectory,
-             .coreServiceDirectory,
-             .autosavedInformationDirectory,
-             .cachesDirectory,
-             .applicationSupportDirectory,
-             .inputMethodsDirectory,
-             .moviesDirectory,
-             .musicDirectory,
-             .picturesDirectory,
-             .printerDescriptionDirectory,
-             .sharedPublicDirectory,
-             .preferencePanesDirectory,
-             .applicationScriptsDirectory,
-             .itemReplacementDirectory,
-             
-             .allApplicationsDirectory,
-             .allLibrariesDirectory:
-            
-            // No current/prospective interest in using these
-            fallthrough
-            
-        @unknown default:
+        if let analog = FileManagerSearchPathDirectory(from: searchPathDirectory) {
+            self = .fileManager(analog)
+        }
+        else {
             return nil
         }
+    }
+    
+    
+//    static let root = generic(.root)
+    static let all = generic(.all)
+    
+    static let applications = fileManager(.applications)
+    static let desktop = fileManager(.desktop)
+    static let downloads = fileManager(.downloads)
+    static let library = fileManager(.library)
+    static let users = fileManager(.users)
+    
+    
+    
+    public static var allCases: [Self] =
+        FileManagerSearchPathDirectory.allCases.map(Self.fileManager)
+        + GenericDirectory.allCases.map(Self.generic)
+    
+    
+    
+    public enum FileManagerSearchPathDirectory: CaseIterable {
+        
+        /// The directory containing canonical applications installed within this namespace/domain (like `/Applications`)
+        case applications
+        
+        /// The directory containing technical/required files (caches, user data, ancillary executables, etc.) within this namespace/domain (like `/Library`)
+        case library
+        
+        /// The directory the files within this namespace/domain which appear on the user's desktop (like `~/Desktop`)
+        case desktop
+        
+        /// The directory within this namespace/domain where downloaded files go by default (like `~/Downloads`)
+        case downloads
+        
+        /// The directory containing user homes (like `/Users`)
+        case users
+        
+        
+        
+        
+        
+        init?(from searchPathDirectory: FileManager.SearchPathDirectory) {
+            switch searchPathDirectory {
+            case .applicationDirectory:
+                self = .applications
+                
+            case .libraryDirectory:
+                self = .library
+                
+                
+            case .desktopDirectory:
+                self = .desktop
+                
+            case .downloadsDirectory:
+                self = .downloads
+                
+            case .userDirectory:
+                self = .users
+                
+            case .documentDirectory,
+                    .trashDirectory:
+                // Might do these in the future... 🤔
+                return nil
+                
+            case .demoApplicationDirectory, .developerApplicationDirectory, .adminApplicationDirectory,
+                
+                    .developerDirectory,
+                    .documentationDirectory,
+                    .coreServiceDirectory,
+                    .autosavedInformationDirectory,
+                    .cachesDirectory,
+                    .applicationSupportDirectory,
+                    .inputMethodsDirectory,
+                    .moviesDirectory,
+                    .musicDirectory,
+                    .picturesDirectory,
+                    .printerDescriptionDirectory,
+                    .sharedPublicDirectory,
+                    .preferencePanesDirectory,
+                    .applicationScriptsDirectory,
+                    .itemReplacementDirectory,
+                
+                    .allApplicationsDirectory,
+                    .allLibrariesDirectory:
+                
+                // No current/prospective interest in using these
+                fallthrough
+                
+            @unknown default:
+                return nil
+            }
+        }
+    }
+    
+    
+    
+    public enum GenericDirectory: CaseIterable {
+        /// All top-level directories of a namespace/domain
+        case all
     }
 }
 
@@ -217,58 +347,79 @@ public extension UrlNamespace {
     }
     
     
-    static func searchPath(for directory: Directory, in domainMask: FileManager.SearchPathDomainMask, expandingTilde: Bool = true) -> [String] {
-        NSSearchPathForDirectoriesInDomains(.init(directory), domainMask, expandingTilde)
+    static func semanticDirectories(_ directory: SemanticDirectory, expandingTilde: Bool = true) -> [URL] {
+        switch directory {
+        case .fileManager(let directory):
+            NSSearchPathForDirectoriesInDomains(.init(directory), .init(domain), expandingTilde)
+                .map(URL.init(_filePath:))
+            
+        case .generic(.all):
+            SemanticDirectory.allCases.flatMap { directory  in
+                switch directory {
+                case .fileManager(let fmDirectory):
+                    NSSearchPathForDirectoriesInDomains(.init(fmDirectory), .init(domain), expandingTilde)
+                        .map(URL.init(_filePath:))
+                    
+                case .generic(.all):
+                    [URL]() // Let's not SO today
+                }
+            }
+        }
     }
     
 
-    static func relativeToHome(path: String) -> URL {
-        return relativeToHome(pathComponents: (
-            path
-                .drop(while: { $0 == "/" })
-                as NSString
-            )
-            .pathComponents
+    static func relativeToSubroot(path: String) -> URL {
+        relativeToSubroot(
+            pathComponents:
+                URL(_filePath: String(path
+                    .drop(while: { $0 == "/" })))
+                .pathComponents
         )
     }
     
     
-    static func relativeToHome(pathComponents: [String]) -> URL {
+    static func relativeToSubroot(pathComponents: [String]) -> URL {
         return pathComponents
-            .reduce(into: self.home) { (url, component) in
+            .reduce(into: subroot) { (url, component) in
                 url /= component
-        }
+            }
     }
     
     
-    static func relativeToHome(directory: Directory) -> URL? {
-        let paths = searchPath(for: directory, in: domainMask)
-        guard let firstPath = paths.first else {
+    static func relativeToSubroot(directory: SemanticDirectory) -> URL? {
+        let urls = semanticDirectories(directory)
+        guard let firstUrl = urls.first else {
             assertionFailure("No paths in \(directory) within \(domain)")
             
             return nil
         }
-        return URL(fileURLWithPath: firstPath)
+        
+        return firstUrl
     }
     
     
     static var applications: URL? {
-        return relativeToHome(directory: .applications)
+        return relativeToSubroot(directory: .applications)
     }
     
     
     static var library: URL? {
-        return relativeToHome(directory: .library)
+        return relativeToSubroot(directory: .library)
     }
     
     
     static var desktop: URL? {
-        return relativeToHome(directory: .desktop)
+        return relativeToSubroot(directory: .desktop)
     }
     
     
     static var downloads: URL? {
-        return relativeToHome(directory: .downloads)
+        return relativeToSubroot(directory: .downloads)
+    }
+    
+    
+    static func / (lhs: Self.Type, rhs: SemanticDirectory) -> URL? {
+        lhs.relativeToSubroot(directory: rhs)
     }
 }
 
@@ -295,7 +446,7 @@ public extension FileManager.SearchPathDomainMask {
 
 
 public extension FileManager.SearchPathDirectory {
-    init(_ directory: UrlNamespace.Directory) {
+    init(_ directory: UrlNamespace.SemanticDirectory.FileManagerSearchPathDirectory) {
         switch directory {
         case .applications:
             self = .applicationDirectory
@@ -308,6 +459,9 @@ public extension FileManager.SearchPathDirectory {
             
         case .downloads:
             self = .downloadsDirectory
+            
+        case .users:
+            self = .userDirectory
         }
     }
 }

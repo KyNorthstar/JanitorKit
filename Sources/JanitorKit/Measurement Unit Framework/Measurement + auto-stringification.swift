@@ -80,7 +80,7 @@ private let numberFormatter = Decimal.FormatStyle().precision(.fractionLength(0.
 
 
 
-extension FloatingPointSign: CustomStringConvertible {
+extension FloatingPointSign: @retroactive CustomStringConvertible {
     
     public var description: String {
         switch self {

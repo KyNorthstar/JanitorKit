@@ -12,8 +12,143 @@ import SimpleLogging
 
 
 
+// MARK: - Path properties
+
 public extension URL {
     
+    /// Determines whether this URL represents the root directory (`/`)
+    var isRoot: Bool {
+        URL.Local.subroot.actualPath == self.actualPath
+    }
+    
+    
+    /// If this URL points to a user home, this returns the semantic description of that.
+    /// If it doesn't, this returns `nil`.
+    var isUserHome: UserHome? {
+        let actualPath = self.actualPath
+        //                if self.standardizedFileURL == URL.userHomeDirectory.deletingLastPathComponent().standardizedFileURL {
+        //                    // this is the root user home directory
+        //                    return .userHome(user: .allUsers)
+        //                }
+        //                else {
+        //                    self.pathComponents.suffix(startingFrom: { $0 == "Users" })
+        //                }
+        if URL.homeDirectory.actualPath == actualPath {
+            return .currentUser
+        }
+        else if URL.User.subroot.actualPath == self.deletingLastPathComponent().actualPath {
+            return .specific(accountName: self.lastPathComponent)
+        }
+        else if URL.User.subroot.actualPath == self.actualPath {
+            return .allUsers
+        }
+        else {
+            return .none
+        }
+    }
+    
+    
+    /// Whether this is a system directory
+    var isSystemDir: Bool {
+        !isRoot
+        && URL.System
+            .semanticDirectories(.all)
+            .lazy
+            .map(\.actualPath)
+            .contains(self.actualPath)
+    }
+    
+    
+    
+    /// A kind of user home directory
+    enum UserHome {
+        
+        // using `nil` is probably better
+//        /// The directory is not a user home directory (although it may be within one) (like `/usr/bin/` or `/Users/ky/Desktop/`).
+//        ///
+//        /// This could also represent that this is not a directory at all (like `/usr/bin/zsh` or `/Users/ky/.zshrc`)
+//        case notUserHome
+        
+        /// The home directory of the user currently logged in (`~/`)
+        case currentUser
+        
+        /// The home directory of one specific user (like `/Users/ky/`)
+        /// - Parameter accountName: The name of the account associated with this user home (like `"ky"`)
+        case specific(accountName: String)
+        
+        /// The root user home directory (like `/Users/`), or a directory which contains it (like `/`)
+        case allUsers
+    }
+}
+
+
+
+// MARK: - Danger
+
+public extension URL {
+    
+    var wouldBeDangerousToTrack: Bool {
+        switch autoDeleteDanger {
+        case .none:
+            return false
+            
+        case .root,
+             .system,
+             .userHome(user: _):
+            return true
+        }
+    }
+    
+    
+    var autoDeleteDanger: AutoDeleteDanger? {
+        if isRoot {
+            return .root
+        }
+        else if isSystemDir {
+            return .system
+        }
+        else {
+            guard let userHome = self.isUserHome else {
+                return .none
+            }
+            
+            switch userHome {
+            case .currentUser,
+                    .specific(accountName: _),
+                    .allUsers:
+                return .userHome(userHome)
+            }
+        }
+    }
+}
+
+
+
+/// How dangerous would it be to set a program to automatically delete files in this directory?
+public enum AutoDeleteDanger {
+    
+    // `nil` is probably better
+//    /// A normal amount of danger, for typical user-scope files like screenshots and downloads.
+//    ///
+//    /// This represents the inherent danger in deleting any file, but nothing more than that.
+//    case mundane
+    
+    /// The entire machine; the root directory. **This is the most dangerous possible directory to auto-delete from!**
+    case root
+    
+    /// A system-controlled directory, like `/System` or `/bin`. **This is an extremely dangerous directory to auto-delete from!**
+    case system
+    
+    /// An entire user home directory, like `/Users` or `/Users/ky`. **This is notably dangerous to auto-delete from!**
+    case userHome(URL.UserHome)
+}
+
+
+
+public extension URL {
+    
+    /// Findsthe URLs of all child files in this directory
+    ///
     /// - Returns: An array of all child files in this directory.
     ///            If this is not a directory, or if there are no files, this returns `[]`
     ///
@@ -72,8 +207,14 @@ public extension URL {
     
     
     /// Attempts to completely resolve this path
+    var withActualPath: URL {
+        self.resolvingSymlinksInPath().standardizedFileURL.absoluteURL
+    }
+    
+    
+    /// Attempts to completely resolve this path
     var actualPath: String {
-        return self.resolvingSymlinksInPath().standardizedFileURL.absoluteURL.path
+        withActualPath.path
     }
     
     

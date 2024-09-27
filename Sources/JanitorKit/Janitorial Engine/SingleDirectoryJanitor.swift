@@ -20,7 +20,7 @@ import SimpleLogging
 public actor SingleDirectoryJanitor {
     
     /// The directory that this janitor is tracking
-    public let trackedDirectory: TrackedDirectory
+    public nonisolated let trackedDirectory: TrackedDirectory // ✅ nonisolated OK because this is a `let`
     
     public let priority: TaskPriority
     

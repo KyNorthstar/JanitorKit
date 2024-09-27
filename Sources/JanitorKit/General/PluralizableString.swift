@@ -51,7 +51,7 @@ extension PluralizableString: Hashable {}
 
 
 
-extension Array: ExpressibleByDictionaryLiteral where Element == PluralString {
+extension Array: @retroactive ExpressibleByDictionaryLiteral where Element == PluralString {
     
     public typealias Key = Int
     public typealias Value = String

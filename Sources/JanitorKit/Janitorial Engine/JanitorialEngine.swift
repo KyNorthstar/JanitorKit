@@ -9,10 +9,20 @@ import Combine
 import Foundation
 
 import CollectionTools
+import SimpleLogging
 
 
 
 typealias RunLoopPublisher<Value> = Publishers.ReceiveOn<Published<Value>.Publisher, RunLoop>
+
+private var janitorialEngineCounter = 0 {
+    willSet {
+        if newValue > 1 {
+            log(fatal: "More than 1 JanitorialEngine!")
+            assertionFailure()
+        }
+    }
+}
 
 
 
@@ -29,8 +39,8 @@ public final actor JanitorialEngine {
 //        var published = Published(initialValue: ActivityOrPlaceholder.placeholderWhileEngineStarts)
 //        return published.projectedValue.receive(on: RunLoop.main)
 //    }()
-    @Published
     @MainActor
+    @Published
     private var mostRecentActivity = ActivityOrPlaceholder.placeholderWhileEngineStarts
     
     
@@ -41,10 +51,32 @@ public final actor JanitorialEngine {
     public private(set) var activityFeed: ActivityFeed
     
     
-    /// Whether to perform a "dry run", where actions are pretended but no changes are made.
+    /// Whether the janitorial engine is still preparing.
     ///
-    /// - Attention: Changing this is an expensive operation! Do not toggle this lightly; all janitors will be immediately stopped, reconfigured, and started again
-    public private(set) var dryRun: Bool = false
+    /// "Preparing" is the initial state of the engine, before it's prepared to do anything. When the engine is not preparing, it's running.
+    ///
+    /// Future versions might see the "preparing" state happen outside initial startup, for example if it needs to shut down to respond to some major change.
+    private var isPreparing = true {
+        didSet {
+            guard oldValue != isPreparing else { return }
+            Task {
+                log(verbose: "Telling everyone that isPreparing changed from \(oldValue) to \(isPreparing)")
+                await announceCurrentRunningState()
+            }
+        }
+    }
+    
+    
+    /// Whether to perform a "dry run", where actions are pretended but no changes are made.
+    private(set) internal var dryRun: Bool {
+        didSet {
+            guard oldValue != dryRun else { return }
+            Task {
+                log(verbose: "Telling everyone that dryRun changed from \(oldValue) to \(dryRun)")
+                await announceCurrentRunningState()
+            }
+        }
+    }
     
     
     // MARK: Init
@@ -54,26 +86,34 @@ public final actor JanitorialEngine {
     /// - Parameters:
     ///   - dryRun:   _optional_ - Iff `true`, no files will be removed, but this will act as if they were anyway. Defaults to `false`
     ///   - janitors: The janitors to start with. To coordinate more janitors later, call `.coordinate(janitor:)`
+    @MainActor
     public init(dryRun: Bool = false, preparing janitors: [SingleDirectoryJanitor]) {
+        janitorialEngineCounter += 1
+        
         self.dryRun = dryRun
         self.janitors = janitors
         self.activityFeed = .dummyThatNeverPublishes() // Gotta do this or else the Swift compiler gets worried that I'm accessing `mostRecentActivity` before `activityFeed` is initialized
         
-        Task(priority: .high) {
-            await createActivityFeed()
+        self.activityFeed = $mostRecentActivity.createActivityFeed()
+        
+        self.runOnThisActor {
+            self.isPreparing = false // I don't know how to communicate to Swift 6 that this is OK, but I do know that it is
+        }
+    }
+}
+
+
+
+private extension Actor {
+    nonisolated func runOnThisActor(_ action: @escaping () -> Void) {
+        Task {
+            await _runOnThisActor(action)
         }
     }
     
     
-    
-    private func createActivityFeed() async {
-        let x = $mostRecentActivity.createActivityFeed()
-        
-        await MainActor.run {
-            self.activityFeed = x
-        }
-        
-        await publish(.ready)
+    func _runOnThisActor(_ action: () -> Void) {
+        action()
     }
 }
 
@@ -88,6 +128,7 @@ public extension JanitorialEngine {
     /// - Parameters:
     ///   - dryRun:   _optional_ - Iff `true`, no files will be removed, but this will act as if they were anyway. Defaults to `false`
     ///   - trackedDirectories: The directories which should be kept clean. Janitors will be created for each one. To coordinate more later, call `.coordinate(janitorFor:)`
+    @MainActor
     init(dryRun: Bool = false, preparingJanitorsFor trackedDirectories: [TrackedDirectory]) {
         self.init(dryRun: dryRun, preparing: trackedDirectories.map { SingleDirectoryJanitor(trackedDirectory: $0) })
     }
@@ -95,13 +136,13 @@ public extension JanitorialEngine {
     
     /// A way to interpret the janitors in this engine as the directories they track
     var trackedDirectories: [TrackedDirectory] {
-        get { janitors.map(\.trackedDirectory) }
+        get { janitors.map { $0.trackedDirectory } }
     }
     
     
     /// A way to change the janitors in this engine using the directories they track
     func setTrackedDirectories(_ newValue: [TrackedDirectory]) async {
-        let changes = newValue.difference(from: janitors.map(\.trackedDirectory))
+        let changes = newValue.difference(from: trackedDirectories)
         
         for change in changes {
             switch change {
@@ -109,12 +150,12 @@ public extension JanitorialEngine {
                 await coordinate(janitor: .init(trackedDirectory: newDirectory))
                 
             case .remove(offset: _, element: let oldDirectory, associatedWith: _):
-                await retire(janitorTracking: oldDirectory)
+                retire(janitorTracking: oldDirectory)
             }
             
             let newDirectories = trackedDirectories
             
-            await publish(.trackedDirectoriesDidChange(newDirectories: newDirectories))
+            await announce(.trackedDirectoriesDidChange(newDirectories: newDirectories))
         }
     }
     
@@ -124,11 +165,11 @@ public extension JanitorialEngine {
     /// - Attention: Changing this is an expensive operation! Do not toggle this lightly; all janitors will be immediately stopped, reconfigured, and started again
     func setDryRun(_ newValue: Bool) async {
         let oldValue = self.dryRun
+        guard oldValue != newValue else { return }
+        
         self.dryRun = newValue
         
-        if oldValue != newValue {
-            await restartAll()
-        }
+        await restartAll()
     }
     
     
@@ -165,14 +206,22 @@ public extension JanitorialEngine {
     /// This inherently stops the janitor immediately.
     ///
     /// - Parameter janitor: The janitor to stop coordinating
-    func retire(janitor: SingleDirectoryJanitor) async {
+    func retire(janitor: SingleDirectoryJanitor) {
         self.janitors.remove(firstElementWithId: janitor.id)
     }
     
     
-    func retire(janitorTracking directoryToRemove: TrackedDirectory) async {
-        if let foundIndex = janitors.firstIndex(where: { $0.trackedDirectory == directoryToRemove }) {
+    /// Stops coordinating the janitor which is tracking the given directory.
+    /// 
+    /// This inherently stops the janitor immediately.
+    ///
+    /// - Parameter directoryToRemove: The directory being tracked by a janitor which is to stop coordinating
+    func retire(janitorTracking directoryToRemove: TrackedDirectory) {
+        if let foundIndex = trackedDirectories.firstIndex(of: directoryToRemove) {
             janitors.remove(at: foundIndex)
+        }
+        else {
+            log(warning: "I was asked to retire the janitor tracking this directory, but I don't think any of my jnitors were keeping track of it: \(directoryToRemove)")
         }
     }
     
@@ -190,10 +239,52 @@ public extension JanitorialEngine {
 
 
 
-// MARK: - Activity feed
+// MARK: - Activity feed & state
+
+public extension JanitorialEngine {
+    /// The current running state of the janitorial engine.
+    ///
+    /// This describes how/whether the engine is running. Read this when you need to know its current broad state, such as "is it even on?"
+    fileprivate(set) var currentRunningState: RunningState {
+        get {
+            if isPreparing {
+                .preparing
+            }
+            else if dryRun {
+                .dryRun
+            }
+            else {
+                .ready
+            }
+        }
+        
+        
+        set {
+            let isPreparing: Bool
+            let dryRun: Bool
+            
+            switch newValue {
+            case .preparing:
+                isPreparing = true
+                dryRun = self.dryRun
+                
+            case .dryRun:
+                isPreparing = false
+                dryRun = true
+                
+            case .ready:
+                isPreparing = false
+                dryRun = false
+            }
+            
+            (self.isPreparing, self.dryRun) = (isPreparing, dryRun)
+        }
+    }
+}
+
+
 
 private extension JanitorialEngine {
-    @frozen
     enum ActivityOrPlaceholder {
         case placeholderWhileEngineStarts
         case activity(Activity)
@@ -210,22 +301,41 @@ public extension JanitorialEngine {
         /// An error occurred
         case error(JanitorialEngine.Error)
         
-        /// The janitorial engine has initialized and is ready to start coordinating janitors
-        case ready
+        /// Signaled when the whole janitorial engine starts/stops
+        case janitorialEngineRunningStateDidChange(runningState: RunningState)
         
-        /// The janitorial engine has started the given janitor
+        /// The janitorial engine has started a janitor
+        /// - Parameter id: The ID of the janitor which was stopped
         case janitorDidStart(id: SingleDirectoryJanitor.ID)
         
-        /// The janitorial engine has stopped the given janitor
+        /// The janitorial engine has stopped a janitor
+        /// - Parameter id: The ID of the janitor which was stopped
         case janitorDidStop(id: SingleDirectoryJanitor.ID)
         
         /// An item was removed from the drive
         case didRemoveFile
         
+        /// The tracked directories are differnet
+        /// - Parameter newDirectories: The new list of all tracked directories after the change
         case trackedDirectoriesDidChange(newDirectories: [TrackedDirectory])
         
-        /// The engine's "dry run" state changed
-        case dryRunDidChange(newValue: Bool)
+        
+        static let ready = janitorialEngineRunningStateDidChange(runningState: .ready)
+    }
+    
+    
+    
+    /// Describes one of the exclusive states of how/whether a janitorial engine is running
+    enum RunningState {
+        
+        /// The janitorial engine is starting up but not yet ready
+        case preparing
+        
+        /// The janitorial engine is ready and running what janitors it has enabled
+        case ready
+        
+        /// The janitorial engine is ready and will emulate running but won't cause any permanent changes
+        case dryRun
     }
 }
 
@@ -256,10 +366,15 @@ private extension JanitorialEngine {
     /// Tells all subscribers that the given activity has occurred
     ///
     /// - Parameter activity: The activity to publish to subscribers
-    func publish(_ activity: Activity) async {
+    func announce(_ activity: Activity) async {
         await MainActor.run {
             self.mostRecentActivity = .activity(activity)
         }
+    }
+    
+    
+    func announceCurrentRunningState() async {
+        await announce(.janitorialEngineRunningStateDidChange(runningState: currentRunningState))
     }
 }
 
@@ -276,6 +391,44 @@ private extension Published<JanitorialEngine.ActivityOrPlaceholder>.Publisher {
                 return nil
             }
         }
+        .removeDuplicates(by: { lhs, rhs in
+            switch (lhs, rhs) {
+            // Consider these duplicates:
+            case (.janitorialEngineRunningStateDidChange(runningState: let lhsRunningState),
+                  .janitorialEngineRunningStateDidChange(runningState: let rhsRunningState))
+                where lhsRunningState == rhsRunningState:
+                return true
+                
+            case (.janitorDidStart(id: let lhsId),
+                  .janitorDidStart(id: let rhsId)),
+                 (.janitorDidStop(id: let lhsId),
+                  .janitorDidStop(id: let rhsId)):
+                return lhsId == rhsId
+                
+            case (.didRemoveFile,
+                  .didRemoveFile):
+                return true
+                
+            case (.trackedDirectoriesDidChange(newDirectories: let lhsNewDirectories),
+                  .trackedDirectoriesDidChange(newDirectories: let rhsNewDirectories))
+                where lhsNewDirectories == rhsNewDirectories:
+                return true
+                
+                
+            // Don't consider these duplicates:
+                
+            case (.error(_), .error(_)):
+                return false
+                
+            case (.error(_), _),
+                (.janitorialEngineRunningStateDidChange(runningState: _), _),
+                (.janitorDidStart(id: _), _),
+                (.janitorDidStop(id: _), _),
+                (.didRemoveFile, _),
+                (.trackedDirectoriesDidChange(newDirectories: _), _):
+                return false
+            }
+        })
         .eraseToAnyPublisher()
     }
 }
@@ -283,16 +436,17 @@ private extension Published<JanitorialEngine.ActivityOrPlaceholder>.Publisher {
 
 
 public extension JanitorialEngine.ActivityFeed {
-    var onlyDryRunChanges: AnyPublisher<Bool, Never> {
+    var runningStateChanges: AnyPublisher<JanitorialEngine.RunningState, Never> {
         compactMap { activity in
             switch activity {
-            case .dryRunDidChange(newValue: let dryRun):
-                return dryRun
+            case .janitorialEngineRunningStateDidChange(runningState: let runningState):
+                return runningState
                 
             default:
                 return nil
             }
         }
+        .removeDuplicates()
         .eraseToAnyPublisher()
     }
 }
