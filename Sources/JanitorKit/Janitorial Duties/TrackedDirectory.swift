@@ -8,6 +8,8 @@
 
 import Foundation
 
+import SimpleLogging
+
 
 
 /// Represents a directory tracked by Janitor

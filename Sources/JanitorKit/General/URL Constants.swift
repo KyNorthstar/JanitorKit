@@ -8,11 +8,12 @@
 import Foundation
 import Cocoa
 
+import Introspection
 import SimpleLogging
 
 
 
-// MARK: User-space conveniences
+// MARK: Domain conveniences
 
 public extension URL {
     
@@ -36,6 +37,14 @@ public extension URL {
         FileManager.default.urls(for: .libraryDirectory, in: .systemDomainMask)
             .first?.deletingLastPathComponent()
             ?? URL(_filePath: "/System")
+    }()
+    
+    
+    /// The Application Support subdirectory for this app (like `~/Library/Application Support/com.example.MyApp/`)
+    static let myApplicationSupport: Self = {
+        (URL.User.relativeToSubroot(directory: .applicationSupport)
+         ?? (URL.homeDirectory / "Application Support"))
+        / Introspection.bundleId
     }()
     
     
@@ -247,6 +256,7 @@ public enum UrlNamespaceDirectory: CaseIterable {
     static let downloads = fileManager(.downloads)
     static let library = fileManager(.library)
     static let users = fileManager(.users)
+    static let applicationSupport = fileManager(.applicationSupport)
     
     
     
@@ -258,20 +268,23 @@ public enum UrlNamespaceDirectory: CaseIterable {
     
     public enum FileManagerSearchPathDirectory: CaseIterable {
         
-        /// The directory containing canonical applications installed within this namespace/domain (like `/Applications`)
+        /// The directory containing canonical applications installed within this namespace/domain (like `/Applications/`)
         case applications
         
-        /// The directory containing technical/required files (caches, user data, ancillary executables, etc.) within this namespace/domain (like `/Library`)
+        /// The directory containing technical/required files (caches, user data, ancillary executables, etc.) within this namespace/domain (like `/Library/`)
         case library
         
-        /// The directory the files within this namespace/domain which appear on the user's desktop (like `~/Desktop`)
+        /// The directory the files within this namespace/domain which appear on the user's desktop (like `~/Desktop/`)
         case desktop
         
-        /// The directory within this namespace/domain where downloaded files go by default (like `~/Downloads`)
+        /// The directory within this namespace/domain where downloaded files go by default (like `~/Downloads/`)
         case downloads
         
-        /// The directory containing user homes (like `/Users`)
+        /// The directory containing user homes (like `/Users/`)
         case users
+        
+        /// The directory containing all apps' save data (like `~/Library/Application Support/`)
+        case applicationSupport
         
         
         
@@ -300,6 +313,9 @@ public enum UrlNamespaceDirectory: CaseIterable {
                 // Might do these in the future... 🤔
                 return nil
                 
+            case .applicationSupportDirectory:
+                self = .applicationSupport
+                
             case .demoApplicationDirectory, .developerApplicationDirectory, .adminApplicationDirectory,
                 
                     .developerDirectory,
@@ -307,7 +323,6 @@ public enum UrlNamespaceDirectory: CaseIterable {
                     .coreServiceDirectory,
                     .autosavedInformationDirectory,
                     .cachesDirectory,
-                    .applicationSupportDirectory,
                     .inputMethodsDirectory,
                     .moviesDirectory,
                     .musicDirectory,
@@ -462,6 +477,9 @@ public extension FileManager.SearchPathDirectory {
             
         case .users:
             self = .userDirectory
+            
+        case .applicationSupport:
+            self = .applicationSupportDirectory
         }
     }
 }

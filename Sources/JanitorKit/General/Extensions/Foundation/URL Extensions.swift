@@ -345,6 +345,11 @@ public extension URL {
         using fileManager: FM)
     async -> DeleteResult
     {
+        guard startAccessingSecurityScopedResource() else {
+            return .lackOfPermissions
+        }
+        defer { stopAccessingSecurityScopedResource() }
+        
         do {
             switch approach {
             case .removing:
