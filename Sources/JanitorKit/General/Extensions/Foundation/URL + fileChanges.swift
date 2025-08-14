@@ -15,27 +15,25 @@ import SimpleLogging
 
 public extension URL {
     func fileChanges() -> FileChangePublisher {
-        class Shim {
+        final class Shim {
             @Published
-            var fileChange: Result<FileChange, FilesystemObservationError>? = nil
+            var mostRecentFileChange: Result<FileChange, FilesystemObservationError>? = nil
             
             var watcher: DirectoryChangeWatcher? 
             
             
             init(actualPath: String) {
-                watcher = nil
-                
                 watcher = DirectoryChangeWatcher(observedDirectoryPath: actualPath) { [weak self] changeResult in
                     guard let self else { return }
                     
                     switch changeResult {
                     case .success(let changes):
                         for change in changes {
-                            fileChange = .success(change)
+                            mostRecentFileChange = .success(change)
                         }
                         
                     case .failure(let error):
-                        fileChange = .failure(.init(error))
+                        mostRecentFileChange = .failure(.init(error))
                     }
                 }
             }
@@ -46,7 +44,7 @@ public extension URL {
         var shim: Shim? = Shim(actualPath: actualPath)
         
         return shim! //! I'm sure that Shim will exist on the line immediately after it's created
-            .$fileChange
+            .$mostRecentFileChange
             .tryCompactMap { result in
                 try result?.get()
             }

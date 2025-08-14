@@ -87,7 +87,7 @@ public extension URL {
 
 public extension URL {
     
-    var wouldBeDangerousToTrack: Bool {
+    var wouldBeDangerousToAutoDelete: Bool {
         switch autoDeleteDanger {
         case .none:
             return false

@@ -27,6 +27,7 @@ let package = Package(
         .package(name: "BasicMathTools", url: "https://github.com/RougeWare/Swift-Basic-Math-Tools.git", from: "1.3.0"),
         .package(name: "CollectionTools", url: "https://github.com/RougeWare/Swift-Collection-Tools.git", from: "3.0.0"),
         .package(name: "FunctionTools", url: "https://github.com/RougeWare/Swift-Function-Tools", from: "1.2.0"),
+        .package(name: "Introspection", url: "https://github.com/RougeWare/Swift-Introspection.git", from: "1.2.0"),
         .package(name: "PropertyWrapperProtocol", url: "https://github.com/RougeWare/Swift-PropertyWrapper-Protocol.git", from: "2.0.0"),
 //        .package(name: "", url: "https://github.com/RougeWare/Swift-Lazy-Patterns.git", from: "4.0.0"),
 //        .package(name: "", url: "https://github.com/RougeWare/Swift-Safe-Pointer.git", from: "2.0.0"),

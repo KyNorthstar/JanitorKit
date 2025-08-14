@@ -1,61 +1,122 @@
 {
-  "object": {
-    "pins": [
-      {
-        "package": "CollectionTools",
-        "repositoryURL": "https://github.com/RougeWare/Swift-Collection-Tools.git",
-        "state": {
-          "branch": null,
-          "revision": "9e7a9f2fa00cbc8c9abe6e1af507a9c967936364",
-          "version": "3.0.0"
-        }
-      },
-      {
-        "package": "FunctionTools",
-        "repositoryURL": "https://github.com/RougeWare/Swift-Function-Tools",
-        "state": {
-          "branch": null,
-          "revision": "0bd76ca2c00120acf7ff840b5dcc1e700870ae22",
-          "version": "1.2.3"
-        }
-      },
-      {
-        "package": "PropertyWrapperProtocol",
-        "repositoryURL": "https://github.com/RougeWare/Swift-PropertyWrapper-Protocol.git",
-        "state": {
-          "branch": null,
-          "revision": "f81b486ef9f40c2d678a0b0b56d7ae43daf522cc",
-          "version": "2.0.0"
-        }
-      },
-      {
-        "package": "RangeTools",
-        "repositoryURL": "https://github.com/RougeWare/Swift-Range-Tools.git",
-        "state": {
-          "branch": null,
-          "revision": "8efcac712d0bd765ac903cb9fd27cc49b6b4ce58",
-          "version": "1.2.1"
-        }
-      },
-      {
-        "package": "SimpleLogging",
-        "repositoryURL": "https://github.com/RougeWare/Swift-Simple-Logging.git",
-        "state": {
-          "branch": null,
-          "revision": "ac1c85ab2d633db51b6fb00606139310a152a65b",
-          "version": "0.4.4"
-        }
-      },
-      {
-        "package": "SwiftyUserDefaults",
-        "repositoryURL": "https://github.com/sunshinejr/SwiftyUserDefaults.git",
-        "state": {
-          "branch": null,
-          "revision": "f66bcd04088582c8fbb5cb8554d577e303bae396",
-          "version": "5.3.0"
-        }
+  "pins" : [
+    {
+      "identity" : "swift-basic-math-tools",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-Basic-Math-Tools.git",
+      "state" : {
+        "revision" : "a821470f058fa41878afdaf83dfcf5f17d94af01",
+        "version" : "1.3.0"
       }
-    ]
-  },
-  "version": 1
+    },
+    {
+      "identity" : "swift-collection-tools",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-Collection-Tools.git",
+      "state" : {
+        "revision" : "9e7a9f2fa00cbc8c9abe6e1af507a9c967936364",
+        "version" : "3.0.0"
+      }
+    },
+    {
+      "identity" : "swift-function-tools",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-Function-Tools",
+      "state" : {
+        "revision" : "0bd76ca2c00120acf7ff840b5dcc1e700870ae22",
+        "version" : "1.2.3"
+      }
+    },
+    {
+      "identity" : "swift-introspection",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-Introspection.git",
+      "state" : {
+        "revision" : "dcdae93300ef178c0fc3f5c3c78bbec1541bac12",
+        "version" : "1.2.0"
+      }
+    },
+    {
+      "identity" : "swift-lazy-containers",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-Lazy-Containers.git",
+      "state" : {
+        "revision" : "360a35c98992fc53739e884fb0c48e988710fa92",
+        "version" : "4.1.0"
+      }
+    },
+    {
+      "identity" : "swift-propertywrapper-protocol",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-PropertyWrapper-Protocol.git",
+      "state" : {
+        "revision" : "f81b486ef9f40c2d678a0b0b56d7ae43daf522cc",
+        "version" : "2.0.0"
+      }
+    },
+    {
+      "identity" : "swift-range-tools",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-Range-Tools.git",
+      "state" : {
+        "revision" : "8efcac712d0bd765ac903cb9fd27cc49b6b4ce58",
+        "version" : "1.2.1"
+      }
+    },
+    {
+      "identity" : "swift-safe-collection-access",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-Safe-Collection-Access.git",
+      "state" : {
+        "revision" : "a2a2f8773f5e85804be785177fa3bf1abeb37dea",
+        "version" : "2.2.2"
+      }
+    },
+    {
+      "identity" : "swift-semver",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-SemVer.git",
+      "state" : {
+        "revision" : "adcdc0836253c9bbb5b337eaa9d87553012ae248",
+        "version" : "3.0.0-Beta.5"
+      }
+    },
+    {
+      "identity" : "swift-simple-logging",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-Simple-Logging.git",
+      "state" : {
+        "branch" : "feature/New-LogChannel-Architecture",
+        "revision" : "bbe392b0056de0f17be80609891770b821d0830d"
+      }
+    },
+    {
+      "identity" : "swift-special-string",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-Special-String.git",
+      "state" : {
+        "revision" : "7a82d5b07b72aed848b028d3e8bf6d9591ec108a",
+        "version" : "1.2.0"
+      }
+    },
+    {
+      "identity" : "swift-string-integer-access",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RougeWare/Swift-String-Integer-Access.git",
+      "state" : {
+        "revision" : "595374e76274a7e951ba183fdd7f443801091d14",
+        "version" : "2.1.0"
+      }
+    },
+    {
+      "identity" : "swiftyuserdefaults",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sunshinejr/SwiftyUserDefaults.git",
+      "state" : {
+        "revision" : "f66bcd04088582c8fbb5cb8554d577e303bae396",
+        "version" : "5.3.0"
+      }
+    }
+  ],
+  "version" : 2
 }

@@ -104,16 +104,16 @@ public final actor JanitorialEngine {
 
 
 
-private extension Actor {
-    nonisolated func runOnThisActor(_ action: @escaping () -> Void) {
+internal extension Actor {
+    nonisolated func runOnThisActor(_ action: @escaping (_ self: Self) -> Void) {
         Task {
             await _runOnThisActor(action)
         }
     }
     
     
-    func _runOnThisActor(_ action: () -> Void) {
-        action()
+    func _runOnThisActor(_ action: (_ self: Self) -> Void) {
+        action(self)
     }
 }
 

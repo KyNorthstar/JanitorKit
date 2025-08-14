@@ -33,6 +33,9 @@ public actor SingleDirectoryJanitor {
     
     private var isCurrentlyChecking = false
     
+    @Published
+    private var directoryState: TrackedDirectory.Status?
+    
     
     public init(
         trackedDirectory: TrackedDirectory,
@@ -63,7 +66,8 @@ public extension SingleDirectoryJanitor {
     {
         self.init(
             trackedDirectory: trackedDirectory,
-            checkingInterval: (10.seconds ... 5.minutes).clamp(trackedDirectory.oldestAllowedAge)
+            checkingInterval: (1.minutes ... 15.minutes)
+                .clamp(trackedDirectory.oldestAllowedAge)
                 .converted(to: .second).value,
             deletionApproach: deletionApproach)
     }
@@ -97,7 +101,13 @@ public extension SingleDirectoryJanitor {
                 log(verbose: "Change received: \(change)")
                 
                 Task { [weak self] in
-                    await self?.performCheck(dryRun: dryRun)
+                    guard let self else { return }
+                    let checkResult = await self.performCheck(dryRun: dryRun)
+                    if let directoryState = TrackedDirectory.Status(for: self.trackedDirectory) {
+                        self.runOnThisActor { `self` in
+                             self.directoryState = directoryState
+                        }
+                    }
                 }
             }
             .store(in: &Self.filesystemChecks)
