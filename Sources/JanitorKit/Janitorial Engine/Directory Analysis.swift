@@ -15,6 +15,16 @@ import SimpleLogging
 
 internal extension TrackedDirectory {
     
+    /// Lists all items within this directory, along with stats we're concerned about
+    /// - Complexity: O(2n)
+    /// - Returns: A set of all files in this directory, annotated with stats we're concerned about
+    func annotatedContents() async -> Set<AnnotatedFile> {
+        url
+        .allChildren()
+        .annotated()
+    }
+    
+    
     /// Determines which files should be deleted automatically within the current rules
     ///
     /// This will always look at age first. It will always recommend to delete files which are older than the oldest allowed age.

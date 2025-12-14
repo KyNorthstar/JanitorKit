@@ -23,41 +23,11 @@ public extension TrackedDirectory {
 
 public extension TrackedDirectory.Status {
     init?(for trackedDirectory: TrackedDirectory) {
-        if let currentSize = trackedDirectory.currentSize {
+        if let currentSize = trackedDirectory.currentTotalSize {
             self = .init(size: currentSize)
         }
         else {
             return nil
         }
-    }
-}
-
-
-
-// MARK: Size
-
-public extension TrackedDirectory {
-    /// Data size information about a tracked directory
-    struct Size {
-        public let absoluteValue: DataSize
-        public let quota: DataSize
-    }
-}
-
-
-
-public extension TrackedDirectory.Size {
-    var quotaPercentage: CGFloat {
-        absoluteValue.convertingToBase.value / quota.convertingToBase.value
-    }
-}
-
-
-
-public extension TrackedDirectory {
-    
-    var currentSize: Size? {
-        guard let dataSize = url.annotated?.size else { return nil }
-        return Size(absoluteValue: dataSize, quota: largestAllowedTotalSize)
     }
 }

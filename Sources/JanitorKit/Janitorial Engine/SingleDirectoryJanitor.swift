@@ -20,7 +20,7 @@ import SimpleLogging
 public actor SingleDirectoryJanitor {
     
     /// The directory that this janitor is tracking
-    public nonisolated let trackedDirectory: TrackedDirectory // ✅ nonisolated OK because this is a `let`
+    public let trackedDirectory: TrackedDirectory // ✅ nonisolated OK because this is a `let`
     
     public let priority: TaskPriority
     
@@ -33,6 +33,7 @@ public actor SingleDirectoryJanitor {
     
     private var isCurrentlyChecking = false
     
+    @UpdatePipelineActor
     @Published
     private var directoryState: TrackedDirectory.Status?
     
@@ -55,6 +56,7 @@ public actor SingleDirectoryJanitor {
 }
 
 
+// MARK: - Convenience initialiser
 
 public extension SingleDirectoryJanitor {
     
@@ -104,9 +106,7 @@ public extension SingleDirectoryJanitor {
                     guard let self else { return }
                     let checkResult = await self.performCheck(dryRun: dryRun)
                     if let directoryState = TrackedDirectory.Status(for: self.trackedDirectory) {
-                        self.runOnThisActor { `self` in
-                             self.directoryState = directoryState
-                        }
+                        await self.setDirectoryState(directoryState)
                     }
                 }
             }
@@ -146,8 +146,19 @@ public extension SingleDirectoryJanitor {
 }
 
 
+// MARK: - Internal helpers
 
 private extension SingleDirectoryJanitor {
+    
+    /// Sets the `directoryState` property on the actor.  
+    ///
+    /// This helper is intentionally `nonisolated` so it can be called from the
+    /// `Task` launched in `start(dryRun:)`.  Inside the helper we are still
+    /// on the actor, so mutation of the isolated property is safe.
+    @UpdatePipelineActor
+    func setDirectoryState(_ state: TrackedDirectory.Status?) async {
+        self.directoryState = state
+    }
     
     
     @discardableResult
@@ -226,6 +237,8 @@ private extension SingleDirectoryJanitor {
 }
 
 
+
+// MARK: - Identifiable Conformance
 
 extension SingleDirectoryJanitor: Identifiable {
     

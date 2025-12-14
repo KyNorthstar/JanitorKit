@@ -443,8 +443,13 @@ public extension Collection where Element == URL {
         
         
         return lazy
-            .compactMap { $0.annotated }
+            .compactMap(\.annotated)
             .sorted(by: oldestFirst)
+    }
+    
+    
+    func annotated() -> Set<AnnotatedFile> {
+        compactMapToSet(\.annotated)
     }
     
     
